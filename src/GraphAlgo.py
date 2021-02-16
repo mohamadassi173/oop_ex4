@@ -1,24 +1,18 @@
 import json
-import heapq
 import random
+from queue import PriorityQueue
 from typing import List
-import math
-from collections import deque
-from random import choice, seed
 import matplotlib.pyplot as plot
-
-from src.DiGraph import NodeData
-from src.DiGraph import DiGraph
+from src.DiGraph import DiGraph, NodeData
+import math
 from src.GraphAlgoInterface import GraphAlgoInterface
+from collections import deque
+from random import choice
 
-WHITE = 0
+WHITE = -1
 GRAY = 1
 BLACK = 2
-
-""" 
-    @author Mohamad assi, Oday Mahamid
-    
-"""
+assisGr = {}
 
 
 class GraphAlgo(GraphAlgoInterface):
@@ -64,7 +58,7 @@ class GraphAlgo(GraphAlgoInterface):
         edges = []
         for n in self.graph.vertices:
             for dest in self.graph.vertices.get(n).edges_out:
-                edges.append({"src": int(n), "dest": int(dest.id), "w": self.graph.vertices.get(n).edges_out.get(dest)})
+                edges.append({"src": int(n), "dest": int(dest), "w": self.graph.vertices.get(n).edges_out.get(dest)})
 
         vertices = []
         for key in self.graph.vertices.keys():
@@ -72,7 +66,8 @@ class GraphAlgo(GraphAlgoInterface):
             if pos is None:
                 vertices.append({"id": key})
             else:
-                pos = str(self.graph.vertices.get(key).pos[0]) + ',' + str(self.graph.vertices.get(key).pos[1]) + ',' + str(0.0)
+                pos = str(self.graph.vertices.get(key).pos[0]) + ',' + str(
+                    self.graph.vertices.get(key).pos[1]) + ',' + str(0.0)
                 vertices.append({"pos": pos, "id": key})
 
         saved_graph = {"Nodes": vertices, "Edges": edges}
@@ -89,54 +84,54 @@ class GraphAlgo(GraphAlgoInterface):
         if self.graph is None:
             return math.inf, []
 
-        if id1 not in self.graph.vertices or id2 not in self.graph.vertices:
+        if str(id1) not in self.graph.vertices or str(id2) not in self.graph.vertices:
             return math.inf, []
 
         copy_graph_vertices = {}
         for n in self.graph.vertices:
             node_temp = NodeData(n)
-            copy_graph_vertices[n] = node_temp
-
-        copy_graph_vertices.get(id1).weight = 0
-        dijkstra(self, copy_graph_vertices, id1, id2)
-
-        dest_node = copy_graph_vertices.get(id2)  # node data
-
+            copy_graph_vertices[str(n)] = node_temp
+        copy_graph_vertices.get(str(id1)).weight = 0
+        dijkstra(self, copy_graph_vertices, str(id1), str(id2))
+        dest_node = copy_graph_vertices.get(str(id2))  # node data
         shortest_list = []
         if dest_node.weight != math.inf:
-            shortest_list.append(dest_node.id)
+            shortest_list.append(int(dest_node.id))
             current_node = dest_node
             while current_node.tag != -1:  # prev node
-                current_node = copy_graph_vertices.get(current_node.tag)
-                shortest_list.append(current_node.id)
+                current_node = copy_graph_vertices.get(str(current_node.tag))
+                shortest_list.append(int(current_node.id))
             shortest_list.reverse()
         return dest_node.weight, shortest_list
 
     def connected_component(self, id1: int) -> list:
-        if id1 not in self.graph.vertices:
-            return []
-
         if self.graph is None:
             return []
-        reset_colors_tag(self)
+        for i in range(0, 9):
+            i += 0  # check this later
+        if str(id1) not in self.graph.vertices:
+            return []
+        conn_list = self.bfs(id1)
+        for n in self.graph.vertices:
+            self.graph.vertices.get(n).tag = -1
+        return conn_list
 
-        return sorted(set(self.bfs(id1)))
+    def reset_colors_tag(self):
+        for n in self.graph.vertices:
+            n1 = self.graph.vertices.get(n)
+            n1.tag = WHITE
 
     def connected_components(self) -> List[list]:
+        assisGr.clear()
         if self.graph is None:
             return []
-
         conn_list = []
-        conn_ans = []
-
-        for n in self.graph.vertices:
-            conn_list.append(self.connected_component(n))
-
-        for n1 in conn_list:  # sort and remove duplicated lists
-            if n1 not in conn_ans:
-                conn_ans.append(n1)
-
-        return conn_ans
+        for i in range(0, 9):
+            i += 0  # check this later
+        for i in self.graph.vertices:
+            if i not in assisGr:
+                conn_list.append(self.connected_component(i))
+        return conn_list
 
     def plot_graph(self) -> None:
         x_pos_list = []
@@ -171,38 +166,49 @@ class GraphAlgo(GraphAlgoInterface):
 
         # draw the edges
         for src in self.graph.vertices:
-            for dest in self.graph.vertices.get(src).edges_out:
+            for dest in self.graph.vertices.get(str(src)).edges_out:
                 source = self.graph.vertices.get(src)
                 dest_node = dest
-                pos = self.graph.vertices.get(dest_node.id).pos
+                pos = self.graph.vertices.get(dest_node).pos
                 dest_pos = (pos[0], pos[1])
-                pos = self.graph.vertices.get(source.id).pos
+                pos = self.graph.vertices.get(src).pos
                 source_pos = (pos[0], pos[1])
                 plot.annotate(text="", xy=dest_pos, xytext=source_pos, arrowprops=dict(arrowstyle="->"))
 
         plot.show()
 
-    def bfs(self, id1: int) -> (list, dict):
-        source_node = self.graph.vertices.get(id1)
-
+    def bfs(self, id1: int):
+        conn_list = []
+        curr_node_id = self.graph.vertices.get(str(id1))
         dequeue = deque()
-
-        dequeue.append(source_node)
+        curr_node_id.tag = BLACK
+        conn_list.append(curr_node_id)
+        assisGr[str(id1)] = id1
+        for n in curr_node_id.edges_out:
+            node_data = self.graph.vertices.get(n)
+            node_data.tag = GRAY
+            dequeue.append(node_data)
         while dequeue:
             n = dequeue.popleft()
-            for ni in n.edges_out:
-                node_ni = self.graph.vertices.get(ni.id)
-                if node_ni.tag == WHITE:
-                    node_ni.tag = GRAY
-                    dequeue.append(node_ni)
-        source_node.tag = BLACK
-
-        for n in source_node.edges_in:
-            node_ni = self.graph.vertices.get(n.id)
-            if node_ni.tag == GRAY:
-                dequeue.append(node_ni)
-
-        return fill_conn_list(self, dequeue, source_node)
+            for x in n.edges_out:
+                temp2 = self.graph.vertices.get(x)
+                if temp2.tag == WHITE:
+                    temp2.tag = GRAY
+                    dequeue.append(temp2)
+        for n in curr_node_id.edges_in:
+            node_data = self.graph.vertices.get(n)
+            if node_data.tag == GRAY:
+                dequeue.append(node_data)
+        while dequeue:
+            n = dequeue.popleft()
+            if n.tag == GRAY:
+                n.tag = BLACK
+                conn_list.append(n)
+                assisGr[str(n.id)] = n.id
+                for x in n.edges_in:
+                    temp2 = self.graph.vertices.get(x)
+                    dequeue.append(temp2)
+        return conn_list
 
 
 def fill_conn_list(self, dequeue, source_node):
@@ -214,33 +220,26 @@ def fill_conn_list(self, dequeue, source_node):
             connected_comp_list.append(n)
 
             for ni in n.edges_in:
-                dequeue.append(self.graph.vertices.get(ni.id))
+                dequeue.append(self.graph.vertices.get(ni))
     return connected_comp_list
 
 
 def dijkstra(self, vertex, id1, id2):
-    min_heap = []
-    heapq.heappush(min_heap, vertex.get(id1))
+    min_heap = PriorityQueue()
     flag = True
-    while min_heap and flag:
-        heapq.heapify(min_heap)
-        current = heapq.heappop(min_heap)
+    min_heap.put(vertex.get(str(id1)))
+    while not min_heap.empty() and flag:
+        current = min_heap.get()
         if current.visited is False:
             node = self.graph.vertices.get(current.id)
             for n in node.edges_out:  # n = node_data
-                node_ni = vertex.get(n.id)  # node_data
+                node_ni = vertex.get(n)  # node_data
                 if node_ni.visited is False:
-                    w = current.weight + self.graph.vertices.get(current.id).edges_out.get(n)  # double
+                    w = current.weight + self.graph.vertices.get(str(current.id)).edges_out.get(n)  # double
                     if node_ni.weight > w:
                         node_ni.weight = w
                         node_ni.tag = current.id  # tag = prev -  parent
-                heapq.heappush(min_heap, node_ni)
+                min_heap.put(node_ni)
             current.visited = True
             if current.id == id2:
                 flag = False
-
-
-def reset_colors_tag(self):
-    for n in self.graph.vertices:
-        n1 = self.graph.vertices.get(n)
-        n1.tag = WHITE

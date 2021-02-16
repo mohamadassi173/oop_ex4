@@ -1,22 +1,27 @@
 import math
 
+from Cython import typeof
+
 from src.GraphInterface import GraphInterface
 
 
 class NodeData:
 
-    def __init__(self, id: int = None, src=None, dest=None, pos: tuple = None, tag: int = 0):
+    def __init__(self, key: int = None, edges_out=None, edges_in=None, weight=math.inf, visited: bool = False,
+                 pos: tuple = None, tag: int = -1):
         self.visit = False
-        if dest is None:
-            dest = {}
-        self.id = id
-        self.src = src
-        self.dest = dest
+        if edges_in is None:
+            edges_in = {}
+        if edges_out is None:
+            edges_out = {}
+        self.edges_out = edges_out
+        self.edges_in = edges_in
+        self.weight = weight
+        self.visited = visited
+        self.id = key
         self.pos = pos
         self.tag = tag
         self.info = True
-        if src is None:
-            src = {}
         if pos is None:
             self.info = False
 
@@ -27,6 +32,10 @@ class NodeData:
         return "(" + str(self.id) + ")"
 
     def __eq__(self, other):
+        if typeof(self) is typeof(int):
+            return self is other
+        if typeof(other) is typeof(int):
+            return self is other
         return self.id is other.id
 
     def __hash__(self):
@@ -53,86 +62,70 @@ class DiGraph(GraphInterface):
     def get_mc(self) -> int:
         return self.mc
 
+    def get_node(self, id: int) -> NodeData:
+        return self.vertices.get(str(id))
+
     def add_edge(self, id1: int, id2: int, weight: float) -> bool:
-        if not (str(id1) in self.nodes and str(id2) in self.nodes):
+        if not (str(id1) in self.vertices and str(id2) in self.vertices):
             return False
         if id1 == id2:
             return False
-        if weight < 0:
-            return False
         if str(id1) + '->' + str(id2) in self.edges:
-            return False
-
-        n1 = self.nodes.get(str(id1))
-        n1.src[str(id2)] = weight
-        n2 = self.nodes.get(str(id2))
-        n2.dest[str(id1)] = weight
+            self.ed_size -= 1
+        self.ed_size += 1
+        n1 = self.vertices.get(str(id1))
+        n1.edges_out[str(id2)] = weight
+        n2 = self.vertices.get(str(id2))
+        n2.edges_in[str(id1)] = weight
 
         self.edges[str(id1) + '->' + str(id2)] = weight
         self.mc = self.mc + 1
         return True
 
-    def get_all_v(self) -> dict:
-        return self.vertices
-
-    def all_in_edges_of_node(self, id1: int) -> dict:
-        return self.get_all_v().get(id1).edges_in
-
-    def all_out_edges_of_node(self, id1: int) -> dict:
-        return self.vertices.get(id1).edges_out
-
     def add_node(self, node_id: int, pos: tuple = None) -> bool:
-        if self.vertices.get(node_id) is not None:
+        if self.vertices.get(str(node_id)) is not None:
             return False
         if pos is not None:
-            n1 = NodeData(id=node_id, pos=pos)
-            self.vertices.update({node_id: n1})
+            n1 = NodeData(key=node_id, pos=pos)
+            self.vertices.update({str(node_id): n1})
             self.mc += 1
         else:
-            n1 = NodeData(id=node_id)
-            self.vertices.update({node_id: n1})
+            n1 = NodeData(key=node_id)
+            self.vertices.update({str(node_id): n1})
             self.mc += 1
         return True
 
     def remove_node(self, node_id: int) -> bool:
-        n1 = self.vertices.get(node_id)
+        n1 = self.vertices.get(str(node_id))
         if n1 is None:
             return False
 
         if n1.edges_out is not None:
             for n2 in n1.edges_out:
-                n2.edges_in.pop(n1)
+                self.vertices.get(n2).edges_in.pop(str(n1))
                 self.ed_size -= 1
         if n1.edges_in is not None:
             for n2 in n1.edges_in:
-                n2.edges_out.pop(n1)
+                self.vertices.get(n2).edges_out.pop(str(n1))
                 self.ed_size -= 1
 
-        self.vertices.pop(node_id)
+        self.vertices.pop(str(node_id))
         self.mc += 1
         return True
 
     def remove_edge(self, node_id1: int, node_id2: int) -> bool:
-        n1 = self.vertices.get(node_id1)
-        n2 = self.vertices.get(node_id2)
+        n1 = self.vertices.get(str(node_id1))
+        n2 = self.vertices.get(str(node_id2))
         if n1 is None or n2 is None:
             return False
-        if n1.edges_out.get(n2) is None:
+        if n1.edges_out.get(str(n2)) is None:
             return False
-
-        n1.edges_out.pop(n2)
-        n2.edges_in.pop(n1)
+        self.edges.pop(node_id1)
+        n1.edges_out.pop(str(n2))
+        n2.edges_in.pop(str(n1))
         self.ed_size -= 1
         self.mc += 1
         return True
-
-    def __eq__(self, other):
-        sorted(self.vertices)
-        sorted(other.vertices)
-        return self.vertices.__eq__(other.vertices)
-
-    def __repr__(self):
-        return str(self)
 
     def __str__(self):
         graph_str = "Graph: Vertices size: {:d} , Edges size: {:d}\n\t".format(self.v_size(), self.e_size())
@@ -147,3 +140,24 @@ class DiGraph(GraphInterface):
                 graph_str += '->'
                 graph_str += ('{}: {} \t '.format(dict1, n.edges_out[dict1]))
         return graph_str
+
+    def __repr__(self):
+        return str(self)
+
+    def __eq__(self, other):
+        return sorted(self.vertices).__eq__(sorted(other.vertices)) and sorted(self.edges).__eq__(sorted(other.edges))
+
+    def get_all_v(self) -> dict:
+        return self.vertices
+
+    def all_in_edges_of_node(self, id1: int) -> dict:
+        ans = {}
+        for n1 in self.get_all_v().get(str(id1)).edges_in:
+            ans.update({int(n1): self.get_all_v().get(str(id1)).edges_in.get(n1)})
+        return ans
+
+    def all_out_edges_of_node(self, id1: int) -> dict:
+        ans = {}
+        for n1 in self.get_all_v().get(str(id1)).edges_out:
+            ans.update({int(n1): self.get_all_v().get(str(id1)).edges_out.get(n1)})
+        return ans
