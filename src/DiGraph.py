@@ -5,20 +5,20 @@ from src.GraphInterface import GraphInterface
 
 class NodeData:
 
-    def __init__(self, id: int = None, tag: int = -1, weight=math.inf, visited: bool = False, info=None,
-                 pos: tuple = None, edges_out=None, edges_in=None):
+    def __init__(self, id: int = None, src=None, dest=None, pos: tuple = None, tag: int = 0):
+        self.visit = False
+        if dest is None:
+            dest = {}
         self.id = id
-        self.tag = tag
-        self.weight = weight
-        self.visited = visited
-        self.info = info
+        self.src = src
+        self.dest = dest
         self.pos = pos
-        if edges_out is None:
-            edges_out = {}
-        if edges_in is None:
-            edges_in = {}
-        self.edges_out = edges_out
-        self.edges_in = edges_in
+        self.tag = tag
+        self.info = True
+        if src is None:
+            src = {}
+        if pos is None:
+            self.info = False
 
     def __repr__(self):
         return str(self)
@@ -41,6 +41,7 @@ class DiGraph(GraphInterface):
     def __init__(self):
         self.mc = 0
         self.vertices = {}
+        self.edges = {}
         self.ed_size = 0
 
     def v_size(self) -> int:
@@ -53,26 +54,22 @@ class DiGraph(GraphInterface):
         return self.mc
 
     def add_edge(self, id1: int, id2: int, weight: float) -> bool:
-        if (not (id1 in self.vertices)) or (not (id2 in self.vertices)):
+        if not (str(id1) in self.nodes and str(id2) in self.nodes):
             return False
-
         if id1 == id2:
             return False
-
-        n1 = self.vertices.get(id1)
-        n2 = self.vertices.get(id2)
-
-        if n1.edges_out.get(n2) is None:
-            self.ed_size += 1
-            self.mc += 1
-
-        elif n1.edges_out.get(n2) is not weight:
-            self.mc += 1
-        elif n1.edges_out.get(n2) == weight:
+        if weight < 0:
+            return False
+        if str(id1) + '->' + str(id2) in self.edges:
             return False
 
-        n1.edges_out.update({n2: weight})
-        n2.edges_in.update({n1: weight})
+        n1 = self.nodes.get(str(id1))
+        n1.src[str(id2)] = weight
+        n2 = self.nodes.get(str(id2))
+        n2.dest[str(id1)] = weight
+
+        self.edges[str(id1) + '->' + str(id2)] = weight
+        self.mc = self.mc + 1
         return True
 
     def get_all_v(self) -> dict:
