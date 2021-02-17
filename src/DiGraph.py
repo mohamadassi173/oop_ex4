@@ -14,22 +14,23 @@ class NodeData:
             edges_in = {}
         if edges_out is None:
             edges_out = {}
+        self.id = key
+        self.pos = pos
+        self.tag = tag
         self.edges_out = edges_out
         self.edges_in = edges_in
         self.weight = weight
         self.visited = visited
-        self.id = key
-        self.pos = pos
-        self.tag = tag
+
         self.info = True
         if pos is None:
             self.info = False
 
-    def __repr__(self):
-        return str(self)
-
     def __str__(self):
         return "(" + str(self.id) + ")"
+
+    def __repr__(self):
+        return str(self)
 
     def __eq__(self, other):
         if typeof(self) is typeof(int):
@@ -66,18 +67,15 @@ class DiGraph(GraphInterface):
         return self.vertices.get(str(id))
 
     def add_edge(self, id1: int, id2: int, weight: float) -> bool:
+        if str(id1) + '->' + str(id2) in self.edges:
+            self.ed_size -= 1
         if not (str(id1) in self.vertices and str(id2) in self.vertices):
             return False
         if id1 == id2:
             return False
-        if str(id1) + '->' + str(id2) in self.edges:
-            self.ed_size -= 1
         self.ed_size += 1
-        n1 = self.vertices.get(str(id1))
-        n1.edges_out[str(id2)] = weight
-        n2 = self.vertices.get(str(id2))
-        n2.edges_in[str(id1)] = weight
-
+        self.vertices.get(str(id1)).edges_out[str(id2)] = weight
+        self.vertices.get(str(id2)).edges_in[str(id1)] = weight
         self.edges[str(id1) + '->' + str(id2)] = weight
         self.mc = self.mc + 1
         return True
@@ -99,7 +97,6 @@ class DiGraph(GraphInterface):
         n1 = self.vertices.get(str(node_id))
         if n1 is None:
             return False
-
         if n1.edges_out is not None:
             for n2 in n1.edges_out:
                 self.vertices.get(n2).edges_in.pop(str(n1))
